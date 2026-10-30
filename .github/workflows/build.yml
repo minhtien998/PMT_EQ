@@ -1,0 +1,50 @@
+name: Build VST3
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build VST3 on Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure CMake
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Release
+        run: cmake --build build
+
+      - name: Verify VST3 exists
+        shell: pwsh
+        run: |
+          $path = "build/SmartEQ_artefacts/Release/VST3/Smart EQ.vst3"
+          if (-not (Test-Path $path)) {
+            Write-Error "VST3 khong duoc tao ra!"
+            exit 1
+          }
+          Get-ChildItem -Recurse $path | Select-Object FullName, Length
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartEQ-VST3-Windows
+          path: build/SmartEQ_artefacts/Release/VST3/
+          if-no-files-found: error
+          retention-days: 90
